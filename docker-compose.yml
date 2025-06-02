@@ -1,30 +1,30 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:13
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
-    volumes:
-      - db_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-
   backend:
     build: ./backend
-    depends_on:
-      - db
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://user:password@db:5432/distance_db
+    depends_on:
+      - db
 
   frontend:
     build: ./frontend
-    depends_on:
-      - backend
     ports:
       - "3000:3000"
 
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: distance_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
 volumes:
-  db_data:
+  pgdata:

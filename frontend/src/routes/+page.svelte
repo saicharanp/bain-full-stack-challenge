@@ -1,43 +1,80 @@
 <script>
   import { onMount } from 'svelte';
+
   let source = '';
   let destination = '';
   let distance = null;
+  let errorMessage = '';
   let history = [];
 
-  const getDistance = async () => {
-    const res = await fetch('http://localhost:8000/distance', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ source, destination })
-    });
-    const data = await res.json();
-    distance = data.distance_km;
-    fetchHistory();
-  };
+  async function fetchDistance() {
+    errorMessage = '';
+    distance = null;
+    try {
+      const res = await fetch('http://localhost:8000/distance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source, destination })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || 'Failed to fetch distance');
+      }
+      const data = await res.json();
+      distance = data.distance_km;
+      await fetchHistory();
+    } catch (err) {
+      errorMessage = err.message;
+    }
+  }
 
-  const fetchHistory = async () => {
-    const res = await fetch('http://localhost:8000/history');
-    history = await res.json();
-  };
+  async function fetchHistory() {
+    try {
+      const res = await fetch('http://localhost:8000/history');
+      if (res.ok) {
+        history = await res.json();
+      }
+    } catch (e) {
+      console.error('Failed to fetch history', e);
+    }
+  }
 
   onMount(() => {
     fetchHistory();
   });
 </script>
 
-<h1>Distance Calculator</h1>
-<input bind:value={source} placeholder="Source Address" />
-<input bind:value={destination} placeholder="Destination Address" />
-<button on:click={getDistance}>Calculate Distance</button>
-
+<h1>Distance Query</h1>
+<div>
+  <input placeholder="Source Address" bind:value={source} />
+  <input placeholder="Destination Address" bind:value={destination} />
+  <button on:click={fetchDistance}>Calculate</button>
+</div>
+{#if errorMessage}
+  <p style="color:red;">{errorMessage}</p>
+{/if}
 {#if distance !== null}
   <p>Distance: {distance.toFixed(2)} km</p>
 {/if}
 
-<h2>History</h2>
-<ul>
-  {#each history as item}
-    <li>{item.source} to {item.destination}: {item.distance_km.toFixed(2)} km at {new Date(item.timestamp).toLocaleString()}</li>
-  {/each}
-</ul>
+<h2>Past Queries</h2>
+<table>
+  <thead>
+    <tr>
+      <th>Source</th>
+      <th>Destination</th>
+      <th>Distance (km)</th>
+      <th>Time</th>
+    </tr>
+  </thead>
+  <tbody>
+    {#each history as record}
+      <tr>
+        <td>{record.source}</td>
+        <td>{record.destination}</td>
+        <td>{record.distance_km.toFixed(2)}</td>
+        <td>{new Date(record.timestamp).toLocaleString()}</td>
+      </tr>
+    {/each}
+  </tbody>
+</table>
